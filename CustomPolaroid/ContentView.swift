@@ -87,20 +87,89 @@ struct ContentView: View {
         }
     }
     
-    // Add Polaroid frame to the image
     func addPolaroidFrame(to image: UIImage) -> UIImage {
-        let renderer = UIGraphicsImageRenderer(size: CGSize(width: image.size.width + 80, height: image.size.height + 150))
+        // Calculate dimensions for a proper Polaroid look with more frame space
+        let sideFrameWidth: CGFloat = 150      // Increased side margins
+        let topFrameWidth: CGFloat = 200       // Top margin
+        let bottomMargin: CGFloat = 600       // Much larger bottom margin for writing
         
-        let framedImage = renderer.image { context in
-            // Draw white background (Polaroid frame)
-            UIColor.white.setFill()
-            context.fill(CGRect(x: 0, y: 0, width: image.size.width + 80, height: image.size.height + 150))
+        let frameSize = CGSize(
+            width: image.size.width + (sideFrameWidth * 2),
+            height: image.size.height + topFrameWidth + bottomMargin
+        )
+        
+        let renderer = UIGraphicsImageRenderer(size: frameSize)
+        
+        return renderer.image { context in
+            // Draw main white background with slight off-white color for more realism
+            UIColor(white: 0.97, alpha: 1.0).setFill()
             
-            // Draw the actual photo
-            image.draw(in: CGRect(x: 40, y: 40, width: image.size.width, height: image.size.height))
+            // Create rounded rectangle for the frame
+            let framePath = UIBezierPath(
+                roundedRect: CGRect(origin: .zero, size: frameSize),
+                cornerRadius: 15
+            )
+            framePath.fill()
+            
+            // Add subtle shadow inside the frame
+            context.cgContext.setShadow(
+                offset: CGSize(width: 0, height: 0),
+                blur: 5,
+                color: UIColor(white: 0.8, alpha: 0.5).cgColor
+            )
+            
+            // Draw the photo with a slight inset
+            let photoRect = CGRect(
+                x: sideFrameWidth,
+                y: topFrameWidth,
+                width: image.size.width,
+                height: image.size.height
+            )
+            
+            // Reset shadow before drawing the image
+            context.cgContext.setShadow(offset: .zero, blur: 0, color: nil)
+            image.draw(in: photoRect)
+            
+            // Add a subtle border around the photo
+            UIColor(white: 0.8, alpha: 0.5).setStroke()
+            UIBezierPath(rect: photoRect).stroke()
+            
+            // Optional: Add subtle texture or grain to the frame
+            addSubtleTextureToFrame(context: context.cgContext, rect: CGRect(origin: .zero, size: frameSize))
+        }
+    }
+
+    // Helper function to add subtle texture to the Polaroid frame
+    private func addSubtleTextureToFrame(context: CGContext, rect: CGRect) {
+        // Save the current graphics state
+        context.saveGState()
+        
+        // Create a clipping path to ensure texture only applies to the frame
+        let framePath = UIBezierPath(roundedRect: rect, cornerRadius: 15)
+        framePath.addClip()
+        
+        // Set a very subtle gray color
+        UIColor(white: 0, alpha: 0.02).setFill()
+        
+        // Add random "specks" for texture
+        let numberOfSpecks = Int(rect.width * rect.height / 300)
+        for _ in 0..<numberOfSpecks {
+            let speckSize = CGFloat.random(in: 0.5...1.5)
+            let x = CGFloat.random(in: rect.minX...rect.maxX)
+            let y = CGFloat.random(in: rect.minY...rect.maxY)
+            
+            let speckRect = CGRect(
+                x: x - speckSize/2,
+                y: y - speckSize/2,
+                width: speckSize,
+                height: speckSize
+            )
+            
+            UIBezierPath(ovalIn: speckRect).fill()
         }
         
-        return framedImage
+        // Restore the graphics state
+        context.restoreGState()
     }
     
     // Save image to photo library
