@@ -65,8 +65,8 @@ struct ContentView: View {
                              })
             } else if let capturedImg = capturedImage {
                 CapturedImageView(image: capturedImg,
-                                onEdit: {
-                                    let framedImage = addPolaroidFrame(to: capturedImg)
+                                onEdit: { filteredImage in
+                                    let framedImage = addPolaroidFrame(to: filteredImage)
                                     capturedImage = framedImage
                                     showEditor = true
                                 },

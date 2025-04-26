@@ -78,6 +78,7 @@ struct DrawingCanvas: UIViewControllerRepresentable {
         let controller = DrawingViewController()
         controller.startingImage = image
         controller.delegate = context.coordinator
+      
         DispatchQueue.main.async {
             viewController = controller
         }

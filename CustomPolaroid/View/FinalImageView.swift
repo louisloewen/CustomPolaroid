@@ -13,7 +13,7 @@ struct FinalImageView: View {
     let onNewPhoto: () -> Void
     
     var body: some View {
-        VStack {
+        VStack(spacing: 50) {
             Spacer()
             
             // Final polaroid preview

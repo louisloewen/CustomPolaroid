@@ -16,7 +16,7 @@ struct WelcomeView: View {
     var body: some View {
         VStack {
             Spacer()
-            Text("Captura y Decora fotos polaroides únicas con un solo clic.")
+            Text("Captura y Decora fotos tipo camara instantaneas.")
                 .font(.headline)
                 .foregroundColor(.white)
                 .padding()
