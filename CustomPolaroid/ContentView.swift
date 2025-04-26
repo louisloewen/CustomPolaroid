@@ -14,174 +14,130 @@ import MessageUI
 // MARK: - Content View
 struct ContentView: View {
     @State private var capturedImage: UIImage?
-    @State private var showCamera = false
+    @State private var showCameraPrep = false
     @State private var showEditor = false
     @State private var finalImage: UIImage?
-    @State private var showingExportOptions = false
     
     var body: some View {
-        VStack {
-            if let unwrappedImage = finalImage {
-                Image(uiImage: unwrappedImage)
-                    .resizable()
-                    .scaledToFit()
-                    .padding()
-                
-                HStack {
-                    Button("Export") {
-                        showingExportOptions = true
-                    }
-                    .padding()
-                    .background(Color.blue)
-                    .foregroundColor(.white)
-                    .cornerRadius(10)
+        if showEditor, let image = capturedImage {
+            DrawingView(image: image, isShown: $showEditor, finalImage: $finalImage)
+        } else {
+            NavigationStack {
+                ZStack {
+                    // Background logic based on current state
+                    backgroundView
                     
-                    Button("New Photo") {
-                        capturedImage = nil
-                        finalImage = nil
-                    }
-                    .padding()
-                    .background(Color.green)
-                    .foregroundColor(.white)
-                    .cornerRadius(10)
+                    // Content logic
+                    contentView
                 }
-            } else if let image = capturedImage {
-                Image(uiImage: image)
+                .fullScreenCover(isPresented: $showCameraPrep) {
+                    CameraPreparationView(capturedImage: $capturedImage, isShown: $showCameraPrep)
+                }
+            }
+        }
+    }
+    
+    private var backgroundView: some View {
+        Group {
+            if finalImage != nil || capturedImage != nil {
+                // For captured or final image views, use the default background
+                Image("Background")
                     .resizable()
-                    .scaledToFit()
-                    .padding()
-                
-                Button("Add Polaroid Frame & Edit") {
-                    let framedImage = addPolaroidFrame(to: image)
-                    capturedImage = framedImage
-                    showEditor = true
-                }
-                .padding()
-                .background(Color.blue)
-                .foregroundColor(.white)
-                .cornerRadius(10)
+                    .scaledToFill()
+                    .ignoresSafeArea()
             } else {
-                Button("Take Photo") {
-                    showCamera = true
-                }
-                .padding()
-                .background(Color.blue)
-                .foregroundColor(.white)
-                .cornerRadius(10)
+                // For welcome view, use the welcome background
+                Image("welcomeBackground")
+                    .resizable()
+                    .scaledToFill()
+                    .ignoresSafeArea()
             }
         }
-        .sheet(isPresented: $showCamera) {
-            CameraView(capturedImage: $capturedImage, isShown: $showCamera)
-        }
-        .sheet(isPresented: $showEditor) {
-            if let image = capturedImage {
-                DrawingView(image: image, isShown: $showEditor, finalImage: $finalImage)
+    }
+    
+    private var contentView: some View {
+        Group {
+            if let unwrappedImage = finalImage {
+                FinalImageView(image: unwrappedImage,
+                             onNewPhoto: {
+                                 capturedImage = nil
+                                 finalImage = nil
+                             })
+            } else if let capturedImg = capturedImage {
+                CapturedImageView(image: capturedImg,
+                                onEdit: {
+                                    let framedImage = addPolaroidFrame(to: capturedImg)
+                                    capturedImage = framedImage
+                                    showEditor = true
+                                },
+                                onRetake: {
+                                    capturedImage = nil
+                                })
+            } else {
+                WelcomeView(onTakePhoto: {
+                    showCameraPrep = true
+                })
             }
-        }
-        .actionSheet(isPresented: $showingExportOptions) {
-            ActionSheet(title: Text("Export Options"), buttons: [
-                .default(Text("Save to Photos")) { saveToPhotoLibrary() },
-                
-                .cancel()
-            ])
         }
     }
     
     func addPolaroidFrame(to image: UIImage) -> UIImage {
-        // Calculate dimensions for a proper Polaroid look with more frame space
-        let sideFrameWidth: CGFloat = 150      // Increased side margins
-        let topFrameWidth: CGFloat = 200       // Top margin
-        let bottomMargin: CGFloat = 600       // Much larger bottom margin for writing
+        // Define consistent frame proportions
+        let frameWidth: CGFloat = 150   // Side margins
+        let topMargin: CGFloat = 200    // Top margin
+        let bottomMargin: CGFloat = 600 // Bottom margin for writing
         
+        // Calculate final size maintaining original image proportions
         let frameSize = CGSize(
-            width: image.size.width + (sideFrameWidth * 2),
-            height: image.size.height + topFrameWidth + bottomMargin
+            width: image.size.width + (frameWidth * 2),
+            height: image.size.height + topMargin + bottomMargin
         )
         
-        let renderer = UIGraphicsImageRenderer(size: frameSize)
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = image.scale  // Use original image scale
+        format.opaque = true
+        
+        let renderer = UIGraphicsImageRenderer(size: frameSize, format: format)
         
         return renderer.image { context in
-            // Draw main white background with slight off-white color for more realism
-            UIColor(white: 0.97, alpha: 1.0).setFill()
-            
-            // Create rounded rectangle for the frame
+            // Draw white background
+            UIColor.white.setFill()
             let framePath = UIBezierPath(
                 roundedRect: CGRect(origin: .zero, size: frameSize),
                 cornerRadius: 15
             )
             framePath.fill()
             
-            // Add subtle shadow inside the frame
-            context.cgContext.setShadow(
-                offset: CGSize(width: 0, height: 0),
-                blur: 5,
-                color: UIColor(white: 0.8, alpha: 0.5).cgColor
+            // Add subtle shadow
+            UIColor(white: 0.9, alpha: 1.0).setFill()
+            let shadowRect = CGRect(
+                x: frameWidth - 5,
+                y: topMargin - 5,
+                width: image.size.width + 10,
+                height: image.size.height + 10
             )
+            let shadowPath = UIBezierPath(rect: shadowRect)
+            shadowPath.fill()
             
-            // Draw the photo with a slight inset
+            // Draw the photo
             let photoRect = CGRect(
-                x: sideFrameWidth,
-                y: topFrameWidth,
+                x: frameWidth,
+                y: topMargin,
                 width: image.size.width,
                 height: image.size.height
             )
             
-            // Reset shadow before drawing the image
-            context.cgContext.setShadow(offset: .zero, blur: 0, color: nil)
             image.draw(in: photoRect)
             
-            // Add a subtle border around the photo
-            UIColor(white: 0.8, alpha: 0.5).setStroke()
-            UIBezierPath(rect: photoRect).stroke()
-            
-            // Optional: Add subtle texture or grain to the frame
-            addSubtleTextureToFrame(context: context.cgContext, rect: CGRect(origin: .zero, size: frameSize))
+            // Add border
+            UIColor.lightGray.setStroke()
+            let borderPath = UIBezierPath(rect: photoRect)
+            borderPath.lineWidth = 1
+            borderPath.stroke()
         }
     }
-
-    // Helper function to add subtle texture to the Polaroid frame
-    private func addSubtleTextureToFrame(context: CGContext, rect: CGRect) {
-        // Save the current graphics state
-        context.saveGState()
-        
-        // Create a clipping path to ensure texture only applies to the frame
-        let framePath = UIBezierPath(roundedRect: rect, cornerRadius: 15)
-        framePath.addClip()
-        
-        // Set a very subtle gray color
-        UIColor(white: 0, alpha: 0.02).setFill()
-        
-        // Add random "specks" for texture
-        let numberOfSpecks = Int(rect.width * rect.height / 300)
-        for _ in 0..<numberOfSpecks {
-            let speckSize = CGFloat.random(in: 0.5...1.5)
-            let x = CGFloat.random(in: rect.minX...rect.maxX)
-            let y = CGFloat.random(in: rect.minY...rect.maxY)
-            
-            let speckRect = CGRect(
-                x: x - speckSize/2,
-                y: y - speckSize/2,
-                width: speckSize,
-                height: speckSize
-            )
-            
-            UIBezierPath(ovalIn: speckRect).fill()
-        }
-        
-        // Restore the graphics state
-        context.restoreGState()
-    }
-    
-    // Save image to photo library
-    func saveToPhotoLibrary() {
-        guard let image = finalImage else { return }
-        UIImageWriteToSavedPhotosAlbum(image, nil, nil, nil)
-    }
-    
 }
-
 
 #Preview {
     ContentView()
 }
-

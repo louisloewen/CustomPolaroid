@@ -11,7 +11,6 @@ import AVFoundation
 import PencilKit
 import MessageUI
 
-
 struct CameraView: UIViewControllerRepresentable {
     @Binding var capturedImage: UIImage?
     @Binding var isShown: Bool
@@ -19,10 +18,23 @@ struct CameraView: UIViewControllerRepresentable {
     func makeUIViewController(context: Context) -> UIImagePickerController {
         let picker = UIImagePickerController()
         picker.delegate = context.coordinator
-        picker.sourceType = .camera
-        picker.cameraCaptureMode = .photo
-        // Force portrait orientation for vertical photos
-        picker.cameraDevice = .rear
+        
+        // Check if we're running in the simulator
+        #if targetEnvironment(simulator)
+            // In simulator, use photo library instead of camera
+            picker.sourceType = .photoLibrary
+        #else
+            // On real device, use camera if available
+            if UIImagePickerController.isSourceTypeAvailable(.camera) {
+                picker.sourceType = .camera
+                picker.cameraCaptureMode = .photo
+                picker.cameraDevice = .rear
+            } else {
+                // Fallback to photo library if camera is not available
+                picker.sourceType = .photoLibrary
+            }
+        #endif
+        
         return picker
     }
     
@@ -51,4 +63,5 @@ struct CameraView: UIViewControllerRepresentable {
         }
     }
 }
+
 
